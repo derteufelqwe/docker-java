@@ -45,7 +45,7 @@ to the docker engine (RAM and CPU) and many more.
 
 ## Images
 **Note:** Before you create containers, you need to have the image you want to use pulled. You can do this manually using the docker cli or using the 
-docker engine.
+docker engine API.
 
 The following code snippet pulls the latest `nginx` image.
 
@@ -54,7 +54,7 @@ wait for the image download to finish, before continuing.
 
 ```java
 client.pullImageCmd("nginx:latest")     // Image name.
-        .withAuthConfig(...)
+        .withAuthConfig(...)            // Use this when downloading from a repository, that requires authentication
         .exec(new ResultCallback<PullResponseItem>() {
     @Override
     public void onStart(Closeable closeable) {
@@ -85,14 +85,14 @@ client.pullImageCmd("nginx:latest")     // Image name.
 
 ### List containers
 You can get a list of containers using `client.listContainersCmd().exec();`
-In with example all with statements are optional, if you want to filter for specific containers. We will explain a few possible filters.
+In with example all with-statements are optional, and only to filter for specific containers. We will explain a few possible filters.
 
 ```java
 List<Container> containers = client.listContainersCmd()
         .withShowAll(true)          // Also show stopped containers
         .withIdFilter(Arrays.asList("id1", "id2"))  // Only return containers, which have the id 'id1' or 'id2'
-        .withLabelFilter(Map...)    // Filter containers by their labels
-        .withLimit(10)              // Limit the amount of returned container
+        .withLabelFilter(Collections.singletonMap("key", "value"))    // Filter containers by their labels
+        .withLimit(10)              // Limit the amount of returned containers
         .withSince(containerId)     // Only return containers, which were created after containerId was created
         .exec();
 ```
@@ -114,7 +114,8 @@ client.killContainerCmd(containerId).exec();    // Kills the container 'containe
 **Note:** Make sure the images used for the containers are pulled on your host.
 All `with...()` statements are optional.
 
-#### Basic container
+
+### Basic container
 ```java
 CreateContainerResponse resp = client.createContainerCmd("nginx:latest")
         .withName("Webserver")
@@ -130,7 +131,7 @@ method to start the newly created container.
 CreateContainerResponse resp = client.createContainerCmd("nginx:latest")
         .withCmd("whoami")      // Overwrite the default cmd 
         .withEntrypoint("/usr/bin/nginx")   // Overwrites the default entrypoint
-        .withLabels(Map...)     // Add labels to the container. The map key is the label name and the map value is the labels value
+        .withLabels(Collections.singletonMap("key", "value"))     // Add labels to the container. The map key is the label name and the map value is the labels value
         .withEnv("NAME=derteufelqwe", "VERSION=1.0")    // Add env variables
         .exec();
 ```
@@ -155,8 +156,8 @@ The following code creates a nginx container and mounts the hosts `/host/path` f
 
 ```java
 Mount mount = new Mount()
-        .withSource("/host/path")
-        .withTarget("/container/path")
+        .withSource("/host/path")       // Docker host path
+        .withTarget("/container/path")  // Container path
         .withType(MountType.BIND)
         .withReadOnly(true);
 
@@ -167,8 +168,6 @@ CreateContainerResponse resp = client.createContainerCmd("nginx:latest")
         .withHostConfig(hostConfig)
         .exec();
 ```
-
-**Note:** Binds and Mounts are a bit similar and can be exchanged. You can also use Mounts to mount a volume to a container.
 
 
 ### Container with exposed ports
@@ -202,8 +201,8 @@ CreateContainerResponse resp = client.createContainerCmd("nginx:latest")
         .exec();
 ```
 
-**Note:** Make sure your containers don't use more RAM than your host system can provide. This can cause your whole system to crash.
-See [Docker engine and OOME]("https://docs.docker.com/config/containers/resource_constraints/#understand-the-risks-of-running-out-of-memory")
+**Warning:** Make sure your containers don't use more RAM than your host system can provide. This can cause your whole system to crash.
+See [Docker engine and OOME](https://docs.docker.com/config/containers/resource_constraints/#understand-the-risks-of-running-out-of-memory)
 
 
 ### Inspect a container
@@ -215,18 +214,19 @@ InspectContainerResponse resp = client.inspectContainerCmd(containerId)
 
 // A few examples
 resp.getName();     // Container name
-resp.getHostConfig();   // See the previous examples for uses for the HostConfig
+resp.getHostConfig();   // See the previous examples for uses of the HostConfig
 resp.getState();    // The state of the container like the exit code
 ```
 
 
 ### Container logs
 The following code snippets downloads the logs from a container. The logs are downloaded in chunks and not line by line.
+
 **Important:** Just like the image pull, this operation is non-blocking.
 
 ```java
 client.logContainerCmd(containerId)
-    .withStdOut(true)   // Download the STDOUT stream - You must set one of the streams
+    .withStdOut(true)   // Download the STDOUT stream - You must set at least one of the streams
     .withStdErr(true)   // Download the STDERR stream
     .exec(new ResultCallback<Frame>() {
         @Override
@@ -253,4 +253,23 @@ client.logContainerCmd(containerId)
     });
 ```
 
+
+## Working with services
+**Note:** Service commands can only be executed on master swarm nodes.
+
+
+## List all services
+The following code lists all available services. See [List containers](#list-containers) for more information about the filters.<br>
+The `with...(...)` statements are optional.
+
+```java
+List<Service> services = client.listServicesCmd()
+        .withIdFilter(...)      // Filter by id
+        .withNameFilter(...)    // Filter by name
+        .withLabelFilter(...)   // Filter by label
+        .exec();
+```
+
+
+## Create a service
 
